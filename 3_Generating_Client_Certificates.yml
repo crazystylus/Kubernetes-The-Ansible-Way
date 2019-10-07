@@ -1,0 +1,47 @@
+---
+- hosts: all
+  name: "Gathering all facts"
+  tasks: [ ]
+
+- hosts: k8s-clients
+  tasks:
+#    - name: Copy admin-csr.json
+#      copy:
+#        src: "files/admin-csr.json"
+#        dest: "/kthw"
+    - name: Generating Admin Client Certificate
+      shell: "cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=kubernetes admin-csr.json | cfssljson -bare admin"
+      args:
+        chdir: "/kthw"
+        creates: "admin-key.pem"
+
+    - name: Render worker-csr.json files
+      template:
+        dest: "/kthw/{{ hostvars[item]['ansible_hostname'] }}-csr.json"
+        src: "files/worker-csr.json.j2"
+      with_items: "{{ groups['k8s-nodes'] }}"
+
+    - name: Generate Kubelet client certificate
+      shell: "cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -hostname={{ hostvars[item]['ansible_hostname'] }},{{ hostvars[item]['ansible_eth1']['ipv4']['address'] }} -profile=kubernetes {{ hostvars[item]['ansible_hostname'] }}-csr.json | cfssljson -bare {{ hostvars[item]['ansible_hostname'] }}"
+      args:
+        chdir: "/kthw"
+        creates: "{{ hostvars[item]['ansible_hostname'] }}-key.pem"
+      with_items: "{{ groups['k8s-nodes'] }}"
+
+    - name: Generating Controller Manager Client Certificate
+      shell: "cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=kubernetes kube-controller-manager-csr.json | cfssljson -bare kube-controller-manager"
+      args:
+        chdir: "/kthw"
+        creates: "kube-controller-manager-key.pem"
+
+    - name: Generating Kuber Proxy Client Key
+      shell: "cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=kubernetes kube-proxy-csr.json | cfssljson -bare kube-proxy"
+      args:
+        chdir: "/kthw"
+        creates: "kube-proxy-key.pem"
+
+    - name: Generating Scheduler Client Key
+      shell: "cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=kubernetes kube-scheduler-csr.json | cfssljson -bare kube-scheduler"
+      args:
+        chdir: "/kthw"
+        creates: "kube-scheduler-key.pem"

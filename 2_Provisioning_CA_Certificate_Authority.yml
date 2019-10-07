@@ -5,13 +5,10 @@
       file:
         path: /kthw
         state: directory
-    - name: Copy required files
+    - name: Synchronize /kthw with required files
       copy:
-        src: "{{ item }}"
+        src: "files/sync/"
         dest: "/kthw"
-      with_items:
-        - "files/ca-config.json"
-        - "files/ca-csr.json"
     - name: Generate Certificate Authority in /kthw
       shell: "cfssl gencert -initca ca-csr.json | cfssljson -bare ca"
       args:

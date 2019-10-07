@@ -31,6 +31,18 @@ Vagrant.configure("2") do |config|
         domain.storage_pool_name = "KVM_HDD"
         domain.default_prefix = 'K8S'
       end
+      if node[:hostname] == "master1"
+        # Generating Ansible Inventory
+        nodeconfig.vm.provision :k8s, type: "ansible"  do |ansible|
+          ansible.playbook = "no_such_file.yml"
+          ansible.groups = {
+                "k8s-masters" => ["master[1:2]"],
+                "k8s-nodes" => ["node[1:2]"],
+                "k8s-clients" => ["client"],
+                "k8s-lb" => ["nginx"]
+            }
+        end
+      end
     end
   end
 end

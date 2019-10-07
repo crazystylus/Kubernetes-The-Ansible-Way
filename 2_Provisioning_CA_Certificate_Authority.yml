@@ -1,0 +1,19 @@
+---
+- hosts: k8s-clients
+  tasks:
+    - name: Check /kthw folder
+      file:
+        path: /kthw
+        state: directory
+    - name: Copy required files
+      copy:
+        src: "{{ item }}"
+        dest: "/kthw"
+      with_items:
+        - "files/ca-config.json"
+        - "files/ca-csr.json"
+    - name: Generate Certificate Authority in /kthw
+      shell: "cfssl gencert -initca ca-csr.json | cfssljson -bare ca"
+      args:
+        chdir: "/kthw"
+        creates: "ca-key.pem"

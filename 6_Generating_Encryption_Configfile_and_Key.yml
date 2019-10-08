@@ -1,0 +1,17 @@
+---
+- hosts: localhost
+  vars:
+    - ENCRYPTION_KEY: "{{ ansible_hostname | to_uuid | b64encode }}"
+  tasks:
+    - name: Encryption ENCRYPTION_KEY
+      debug: var=ENCRYPTION_KEY
+    - name: Render template
+      template:
+        src: "files/encryption-config.yaml.j2"
+        dest: "files/pull/encryption-config.yaml"
+- hosts: k8s-masters
+  tasks:
+    - name: Copy Encryption Config files
+      copy:
+        src: "files/pull/encryption-config.yaml"
+        dest: "~/"

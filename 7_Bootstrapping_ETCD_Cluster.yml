@@ -1,0 +1,54 @@
+---
+- hosts: k8s-masters
+  vars:
+    - INTERNAL_IP: "{{ ansible_eth1.ipv4.address }}"
+    - ETCD_NAME: "{{ ansible_hostname }}"
+
+  tasks:
+    - name: Download ETCD Archive
+      get_url:
+        dest: "~/"
+        url: "https://github.com/etcd-io/etcd/releases/download/v3.4.0/etcd-v3.4.0-linux-amd64.tar.gz"
+
+    - name: Unarchive Archive
+      unarchive:
+        src: "~/etcd-v3.4.0-linux-amd64.tar.gz"
+        dest: "~/"
+        remote_src: yes
+
+    - name: Move Files
+      shell: "cp etcd-v3.4.0-linux-amd64/etcd* /usr/local/bin/"
+      args:
+        chdir: "~/"
+        creates: "/usr/local/bin/etcdctl"
+
+    - name: Making etcd directory
+      shell: "mkdir -p /etc/etcd /var/lib/etcd"
+
+    - name: Copy ca.pem kubernetes-key.pem kubernetes.pem to /etc/etcd/
+      shell: "cp ca.pem kubernetes-key.pem kubernetes.pem /etc/etcd/"
+      args:
+        chdir: "~/"
+        creates: "/etc/etcd/kubernetes-key.pem"
+
+    - name: Rendering etcd.service
+      template:
+        src: "files/etcd.service.j2"
+        dest: "/etc/systemd/system/etcd.service"
+
+    - name: Start and enable etcd service
+      systemd:
+        daemon_reload: yes
+        enabled: yes
+        name: etcd
+        state: restarted
+
+    - name: Test the ETCD Cluster
+      shell: |
+        /usr/local/bin/etcdctl member list \
+          --endpoints=https://127.0.0.1:2379 \
+          --cacert=/etc/etcd/ca.pem \
+          --cert=/etc/etcd/kubernetes.pem \
+          --key=/etc/etcd/kubernetes-key.pem
+      register: etcd_op
+    - debug: var=etcd_op.stdout_lines
